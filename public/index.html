@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>☕ ระบบสต็อกร้านกาแฟ</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans Thai', sans-serif; background: #faf6f1; }
+.header { background: linear-gradient(135deg,#3b1a08,#7b4f2e); padding: 16px 20px; color: #d4a96a; }
+.header h1 { font-size: 20px; font-weight: 800; }
+.nav { display: flex; background: #fff; border-bottom: 1px solid #e5e7eb; overflow-x: auto; }
+.nav button { flex: 1; min-width: 80px; padding: 12px 8px; border: none; background: none; font-family: inherit; font-size: 12px; cursor: pointer; color: #9ca3af; border-bottom: 3px solid transparent; }
+.nav button.active { color: #7b4f2e; border-bottom-color: #7b4f2e; font-weight: 700; }
+.content { padding: 16px; max-width: 600px; margin: 0 auto; }
+.card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 6px rgba(0,0,0,.07); }
+.card h3 { color: #3b1a08; font-size: 15px; margin-bottom: 12px; }
+input, select { width: 100%; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 10px; font-family: inherit; font-size: 14px; margin-bottom: 8px; outline: none; }
+button.btn { width: 100%; padding: 12px; background: #7b4f2e; color: #fff; border: none; border-radius: 10px; font-family: inherit; font-weight: 700; font-size: 15px; cursor: pointer; margin-bottom: 8px; }
+button.btn-green { background: #065f46; }
+button.btn-red { background: #7f1d1d; }
+.product-card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 6px rgba(0,0,0,.07); border-left: 4px solid #d1fae5; }
+.product-card.warn { border-left-color: #fef9c3; }
+.product-card.danger { border-left-color: #fee2e2; }
+.product-name { font-weight: 700; font-size: 15px; color: #1f2937; }
+.product-meta { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+.qty-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+.qty-box { flex: 1; text-align: center; background: #faf6f1; border-radius: 8px; padding: 8px; }
+.qty-num { font-size: 22px; font-weight: 800; color: #3b1a08; }
+.qty-label { font-size: 11px; color: #9ca3af; }
+.btn-sm { padding: 6px 12px; border: none; border-radius: 8px; font-family: inherit; font-weight: 700; font-size: 12px; cursor: pointer; }
+.badge { display: inline-block; padding: 3px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; }
+.badge-green { background: #d1fae5; color: #065f46; }
+.badge-yellow { background: #fef9c3; color: #713f12; }
+.badge-red { background: #fee2e2; color: #7f1d1d; }
+.summary { display: flex; gap: 8px; margin-bottom: 14px; overflow-x: auto; }
+.summary-card { min-width: 120px; background: #fff; border-radius: 12px; padding: 10px 14px; box-shadow: 0 1px 6px rgba(0,0,0,.07); flex: 0 0 auto; }
+.tab { display: none; }
+.tab.active { display: block; }
+.finance-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>☕ ระบบสต็อกร้านกาแฟ</h1>
+  <div id="lastUpdate" style="font-size:11px;color:#c49a6c;margin-top:4px;"></div>
+</div>
+
+<div class="nav">
+  <button class="active" onclick="showTab('stock')">📦 สต็อก</button>
+  <button onclick="showTab('transfer')">🔄 เบิกของ</button>
+  <button onclick="showTab('finance')">💰 การเงิน</button>
+  <button onclick="showTab('orders')">🛒 สั่งซื้อ</button>
+  <button onclick="showTab('add')">➕ เพิ่ม</button>
+</div>
+
+<div class="content">
+
+<!-- STOCK TAB -->
+<div id="tab-stock" class="tab active">
+  <div style="display:flex;gap:8px;margin-bottom:12px;">
+    <button onclick="setLoc('front')" id="btn-front" class="btn" style="background:#7b4f2e">☕ หน้าบาร์</button>
+    <button onclick="setLoc('store')" id="btn-store" class="btn" style="background:#e5e7eb;color:#374151">🏪 สโตร์</button>
+  </div>
+  <input type="text" id="searchInput" placeholder="🔍 ค้นหาวัตถุดิบ..." oninput="renderStock()">
+  <div id="stockList"></div>
+</div>
+
+<!-- TRANSFER TAB -->
+<div id="tab-transfer" class="tab">
+  <div class="card">
+    <h3>🔄 เบิกจากสโตร์ → หน้าบาร์</h3>
+    <select id="transferPid" onchange="updateTransferInfo()">
+      <option value="">— เลือกวัตถุดิบ —</option>
+    </select>
+    <div id="transferInfo" style="background:#faf6f1;border-radius:10px;padding:12px;margin-bottom:10px;display:none;">
+      <div id="transferInfoText" style="font-size:13px;color:#6b7280;"></div>
+    </div>
+    <input type="number" id="transferQty" placeholder="จำนวนที่ต้องการเบิก">
+    <button class="btn" onclick="doTransfer()">เบิกของ ✓</button>
+  </div>
+  <div class="card">
+    <h3>ประวัติการเบิก</h3>
+    <div id="transferHistory"></div>
+  </div>
+</div>
+
+<!-- FINANCE TAB -->
+<div id="tab-finance" class="tab">
+  <div class="summary">
+    <div class="summary-card"><div style="font-size:11px;color:#065f46">รายรับวันนี้</div><div style="font-size:16px;font-weight:800;color:#065f46" id="todayRevenue">฿0</div></div>
+    <div class="summary-card"><div style="font-size:11px;color:#7f1d1d">รายจ่ายวันนี้</div><div style="font-size:16px;font-weight:800;color:#7f1d1d" id="todayCost">฿0</div></div>
+    <div class="summary-card"><div style="font-size:11px;color:#1e40af">กำไรวันนี้</div><div style="font-size:16px;font-weight:800;color:#1e40af" id="todayProfit">฿0</div></div>
+  </div>
+  <div class="card">
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button id="btn-income" class="btn btn-green" onclick="setFinType('รายรับ')">💵 รายรับ</button>
+      <button id="btn-expense" class="btn" style="background:#e5e7eb;color:#374151" onclick="setFinType('รายจ่าย')">📤 รายจ่าย</button>
+    </div>
+    <input type="number" id="finAmount" placeholder="จำนวนเงิน (บาท)">
+    <input type="text" id="finDesc" placeholder="รายละเอียด">
+    <button class="btn" onclick="addFinance()">บันทึก</button>
+  </div>
+  <div class="card">
+    <h3>รายการล่าสุด</h3>
+    <div id="financeList"></div>
+  </div>
+</div>
+
+<!-- ORDERS TAB -->
+<div id="tab-orders" class="tab">
+  <div class="card">
+    <h3>🔴 วัตถุดิบที่ต้องสั่งซื้อ</h3>
+    <div id="alertList"></div>
+  </div>
+  <div class="card">
+    <h3>สร้างใบสั่งซื้อ</h3>
+    <select id="orderPid"><option value="">— เลือกวัตถุดิบ —</option></select>
+    <input type="number" id="orderQty" placeholder="จำนวนที่สั่ง">
+    <input type="text" id="orderSupplier" placeholder="ซัพพลายเออร์">
+    <button class="btn" onclick="createOrder()">สร้าง PO</button>
+  </div>
+  <div id="orderList"></div>
+</div>
+
+<!-- ADD TAB -->
+<div id="tab-add" class="tab">
+  <div class="card">
+    <h3>➕ เพิ่มวัตถุดิบใหม่</h3>
+    <input type="text" id="newName" placeholder="ชื่อวัตถุดิบ">
+    <input type="text" id="newUnit" placeholder="หน่วย (เช่น ถุง, กล่อง, กก.)">
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1"><label style="font-size:12px;color:#9ca3af">สต็อกสโตร์</label><input type="number" id="newStore" placeholder="0"></div>
+      <div style="flex:1"><label style="font-size:12px;color:#9ca3af">สต็อกหน้าบาร์</label><input type="number" id="newFront" placeholder="0"></div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1"><label style="font-size:12px;color:#9ca3af">จุดสั่งซื้อ (ROP)</label><input type="number" id="newRop" placeholder="5"></div>
+      <div style="flex:1"><label style="font-size:12px;color:#9ca3af">ราคา/หน่วย (฿)</label><input type="number" id="newPrice" placeholder="0"></div>
+    </div>
+    <button class="btn" onclick="addProduct()">เพิ่มวัตถุดิบ</button>
+  </div>
+</div>
+
+</div>
+
+<!-- MODAL -->
+<div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:flex-end;">
+  <div style="background:#fff;border-radius:20px 20px 0 0;padding:24px;width:100%;">
+    <div id="modalTitle" style="font-weight:800;font-size:17px;color:#3b1a08;margin-bottom:4px;"></div>
+    <div id="modalSub" style="font-size:13px;color:#9ca3af;margin-bottom:16px;"></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button onclick="setAction('รับเข้า')" id="act-in" class="btn btn-green" style="flex:1;width:auto">+ รับเข้า</button>
+      <button onclick="setAction('จ่ายออก')" id="act-out" class="btn btn-red" style="flex:1;width:auto">− ใช้</button>
+      <button onclick="setAction('นับจริง')" id="act-count" class="btn" style="flex:1;width:auto;background:#fef9c3;color:#713f12">✏️ นับ</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button onclick="setModalLoc('store')" id="ml-store" class="btn" style="flex:1;width:auto;background:#faf6f1;color:#3b1a08;border:2px solid #c49a6c">🏪 สโตร์</button>
+      <button onclick="setModalLoc('front')" id="ml-front" class="btn" style="flex:1;width:auto;background:#e5e7eb;color:#374151;border:2px solid transparent">☕ หน้าบาร์</button>
+    </div>
+    <input type="number" id="modalQty" placeholder="จำนวน" style="font-size:18px;font-weight:700;text-align:center;margin-bottom:8px;">
+    <input type="text" id="modalNote" placeholder="หมายเหตุ (ไม่บังคับ)" style="margin-bottom:14px;">
+    <div style="display:flex;gap:10px;">
+      <button onclick="closeModal()" class="btn" style="flex:1;background:#f3f4f6;color:#374151">ยกเลิก</button>
+      <button onclick="submitModal()" class="btn" style="flex:2">บันทึก ✓</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let db = { products: [], transactions: [], finance: [], orders: [] };
+let currentLoc = 'front';
+let finType = 'รายรับ';
+let modalPid = null;
+let modalAction = 'รับเข้า';
+let modalLoc = 'store';
+
+async function loadData() {
+  try {
+    const r = await fetch('/api/data');
+    db = await r.json();
+  } catch(e) {}
+  renderAll();
+}
+
+async function saveData() {
+  try {
+    await fetch('/api/data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(db) });
+  } catch(e) {}
+}
+
+function renderAll() {
+  renderStock();
+  renderTransfer();
+  renderFinance();
+  renderOrders();
+  document.getElementById('lastUpdate').textContent = 'อัปเดต: ' + new Date().toLocaleTimeString('th-TH');
+}
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function setLoc(loc) {
+  currentLoc = loc;
+  document.getElementById('btn-front').style.background = loc==='front'?'#7b4f2e':'#e5e7eb';
+  document.getElementById('btn-front').style.color = loc==='front'?'#fff':'#374151';
+  document.getElementById('btn-store').style.background = loc==='store'?'#7b4f2e':'#e5e7eb';
+  document.getElementById('btn-store').style.color = loc==='store'?'#fff':'#374151';
+  renderStock();
+}
+
+function statusOf(qty, rop) {
+  if (qty <= 0) return 'หมด';
+  if (qty <= rop * 0.5) return 'วิกฤต';
+  if (qty <= rop) return 'ใกล้หมด';
+  return 'ปกติ';
+}
+
+function renderStock() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const list = document.getElementById('stockList');
+  const filtered = db.products.filter(p => p.name.toLowerCase().includes(search));
+  if (!filtered.length) { list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:20px">ไม่มีวัตถุดิบ</div>'; return; }
+  list.innerHTML = filtered.map(p => {
+    const qty = currentLoc === 'front' ? p.frontQty : p.storeQty;
+    const st = statusOf(qty, p.rop);
+    const cls = st==='ปกติ'?'':st==='ใกล้หมด'||st==='หมด'?'warn':'danger';
+    const badge = st==='ปกติ'?'badge-green':st==='ใกล้หมด'?'badge-yellow':'badge-red';
+    return `<div class="product-card ${cls}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div><div class="product-name">${p.name}</div><div class="product-meta">${p.unit} · ROP: ${p.rop}</div></div>
+        <span class="badge ${badge}">${st==='ปกติ'?'🟢 ปกติ':st==='ใกล้หมด'?'🟡 ใกล้หมด':st==='วิกฤต'?'🔴 วิกฤต':'⚫ หมด'}</span>
+      </div>
+      <div class="qty-row">
+        <div class="qty-box"><div class="qty-num">${qty}</div><div class="qty-label">${currentLoc==='front'?'หน้าบาร์':'สโตร์'}</div></div>
+        <button class="btn-sm" style="background:#d1fae5;color:#065f46" onclick="openModal('${p.id}','รับเข้า')">+ รับ</button>
+        <button class="btn-sm" style="background:#fee2e2;color:#7f1d1d" onclick="openModal('${p.id}','จ่ายออก')">− ใช้</button>
+        <button class="btn-sm" style="background:#fef9c3;color:#713f12" onclick="openModal('${p.id}','นับจริง')">✏️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openModal(pid, action) {
+  modalPid = pid;
+  modalAction = action;
+  modalLoc = currentLoc;
+  const p = db.products.find(x => x.id === pid);
+  document.getElementById('modalTitle').textContent = p.name;
+  document.getElementById('modalSub').textContent = `${modalLoc==='store'?'🏪 สโตร์':'☕ หน้าบาร์'} · คงเหลือ: ${modalLoc==='store'?p.storeQty:p.frontQty} ${p.unit}`;
+  document.getElementById('modalQty').value = '';
+  document.getElementById('modalNote').value = '';
+  setAction(action);
+  setModalLoc(modalLoc);
+  document.getElementById('modal').style.display = 'flex';
+}
+
+function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+function setAction(a) {
+  modalAction = a;
+  ['in','out','count'].forEach(x => document.getElementById('act-'+x).style.opacity = '0.4');
+  const map = {'รับเข้า':'in','จ่ายออก':'out','นับจริง':'count'};
+  document.getElementById('act-'+map[a]).style.opacity = '1';
+}
+
+function setModalLoc(loc) {
+  modalLoc = loc;
+  document.getElementById('ml-store').style.background = loc==='store'?'#faf6f1':'#e5e7eb';
+  document.getElementById('ml-store').style.borderColor = loc==='store'?'#c49a6c':'transparent';
+  document.getElementById('ml-front').style.background = loc==='front'?'#faf6f1':'#e5e7eb';
+  document.getElementById('ml-front').style.borderColor = loc==='front'?'#c49a6c':'transparent';
+  const p = db.products.find(x => x.id === modalPid);
+  if(p) document.getElementById('modalSub').textContent = `${modalLoc==='store'?'🏪 สโตร์':'☕ หน้าบาร์'} · คงเหลือ: ${modalLoc==='store'?p.storeQty:p.frontQty} ${p.unit}`;
+}
+
+function submitModal() {
+  const q = parseFloat(document.getElementById('modalQty').value);
+  if (!q || q <= 0) { alert('กรอกจำนวน'); return; }
+  const note = document.getElementById('modalNote').value;
+  db.products = db.products.map(p => {
+    if (p.id !== modalPid) return p;
+    const np = {...p};
+    if (modalAction === 'นับจริง') { if(modalLoc==='store') np.storeQty=q; else np.frontQty=q; }
+    else if (modalAction === 'รับเข้า') { if(modalLoc==='store') np.storeQty+=q; else np.frontQty+=q; }
+    else { if(modalLoc==='store') np.storeQty=Math.max(0,np.storeQty-q); else np.frontQty=Math.max(0,np.frontQty-q); }
+    return np;
+  });
+  db.transactions.unshift({ id: Date.now(), ts: new Date().toLocaleString('th-TH'), type: modalAction, pid: modalPid, qty: q, loc: modalLoc, note });
+  saveData(); closeModal(); renderAll();
+}
+
+function renderTransfer() {
+  const sel = document.getElementById('transferPid');
+  const orderSel = document.getElementById('orderPid');
+  const opts = '<option value="">— เลือกวัตถุดิบ —</option>' + db.products.map(p => `<option value="${p.id}">${p.name} (สโตร์: ${p.storeQty} ${p.unit})</option>`).join('');
+  sel.innerHTML = opts;
+  orderSel.innerHTML = opts;
+  const hist = document.getElementById('transferHistory');
+  const transfers = db.transactions.filter(t => t.type === 'เบิกของ').slice(0, 10);
+  hist.innerHTML = transfers.length ? transfers.map(t => `<div class="finance-item"><div><div style="font-size:13px;font-weight:600">${db.products.find(p=>p.id===t.pid)?.name||t.pid}</div><div style="font-size:11px;color:#9ca3af">${t.ts}</div></div><span class="badge badge-green">${t.qty} หน่วย</span></div>`).join('') : '<div style="color:#9ca3af;text-align:center;padding:16px">ยังไม่มีการเบิก</div>';
+}
+
+function updateTransferInfo() {
+  const pid = document.getElementById('transferPid').value;
+  const info = document.getElementById('transferInfo');
+  if (!pid) { info.style.display='none'; return; }
+  const p = db.products.find(x => x.id === pid);
+  document.getElementById('transferInfoText').textContent = `สโตร์: ${p.storeQty} ${p.unit} → หน้าบาร์: ${p.frontQty} ${p.unit}`;
+  info.style.display = 'block';
+}
+
+function doTransfer() {
+  const pid = document.getElementById('transferPid').value;
+  const q = parseFloat(document.getElementById('transferQty').value);
+  if (!pid || !q || q<=0) { alert('กรอกข้อมูลให้ครบ'); return; }
+  const p = db.products.find(x => x.id===pid);
+  if (p.storeQty < q) { alert('สโตร์มีไม่พอ'); return; }
+  db.products = db.products.map(x => x.id===pid ? {...x, storeQty:x.storeQty-q, frontQty:x.frontQty+q} : x);
+  db.transactions.unshift({ id:Date.now(), ts:new Date().toLocaleString('th-TH'), type:'เบิกของ', pid, qty:q, loc:'transfer', note:'' });
+  document.getElementById('transferQty').value = '';
+  saveData(); renderAll(); alert(`เบิก ${p.name} ${q} ${p.unit} สำเร็จ`);
+}
+
+function setFinType(t) {
+  finType = t;
+  document.getElementById('btn-income').style.background = t==='รายรับ'?'#065f46':'#e5e7eb';
+  document.getElementById('btn-income').style.color = t==='รายรับ'?'#fff':'#374151';
+  document.getElementById('btn-expense').style.background = t==='รายจ่าย'?'#7f1d1d':'#e5e7eb';
+  document.getElementById('btn-expense').style.color = t==='รายจ่าย'?'#fff':'#374151';
+}
+
+function addFinance() {
+  const a = parseFloat(document.getElementById('finAmount').value);
+  const desc = document.getElementById('finDesc').value;
+  if (!a||a<=0) { alert('กรอกจำนวนเงิน'); return; }
+  db.finance.unshift({ id:Date.now(), ts:new Date().toISOString(), type:finType, amount:a, desc });
+  document.getElementById('finAmount').value = '';
+  document.getElementById('finDesc').value = '';
+  saveData(); renderFinance();
+}
+
+function renderFinance() {
+  const today = new Date().toDateString();
+  const todayItems = db.finance.filter(f => new Date(f.ts).toDateString()===today);
+  const rev = todayItems.filter(f=>f.type==='รายรับ').reduce((s,f)=>s+f.amount,0);
+  const cost = todayItems.filter(f=>f.type==='รายจ่าย').reduce((s,f)=>s+f.amount,0);
+  document.getElementById('todayRevenue').textContent = '฿'+rev.toLocaleString();
+  document.getElementById('todayCost').textContent = '฿'+cost.toLocaleString();
+  document.getElementById('todayProfit').textContent = '฿'+(rev-cost).toLocaleString();
+  const list = document.getElementById('financeList');
+  list.innerHTML = db.finance.slice(0,20).map(f => `<div class="finance-item"><div><div style="font-size:13px;font-weight:600">${f.desc||f.type}</div><div style="font-size:11px;color:#9ca3af">${new Date(f.ts).toLocaleString('th-TH')}</div></div><div style="font-weight:800;color:${f.type==='รายรับ'?'#065f46':'#7f1d1d'}">${f.type==='รายรับ'?'+':'-'}฿${f.amount.toLocaleString()}</div></div>`).join('') || '<div style="color:#9ca3af;text-align:center;padding:16px">ยังไม่มีรายการ</div>';
+}
+
+function renderOrders() {
+  const alerts = db.products.filter(p => p.frontQty <= p.rop);
+  document.getElementById('alertList').innerHTML = alerts.length ? alerts.map(p => `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f3f4f6"><div><div style="font-size:13px;font-weight:600">${p.name}</div><div style="font-size:11px;color:#9ca3af">หน้าบาร์: ${p.frontQty} / ROP: ${p.rop}</div></div><span class="badge badge-red">⚠️ สั่งด่วน</span></div>`).join('') : '<div style="color:#065f46;text-align:center;padding:16px">🟢 สต็อกปกติทุกรายการ</div>';
+  const orderList = document.getElementById('orderList');
+  orderList.innerHTML = db.orders.slice(0,10).map(o => {
+    const p = db.products.find(x=>x.id===o.pid);
+    return `<div class="card"><div style="display:flex;justify-content:space-between"><div><div style="font-weight:700;color:#7b4f2e;font-size:12px">${o.id}</div><div style="font-size:14px;font-weight:600">${p?.name||o.pid}</div><div style="font-size:11px;color:#9ca3af">${o.ts}${o.supplier?' · '+o.supplier:''}</div></div><div style="font-weight:800">${o.qty} ${p?.unit||''}</div></div>${o.status==='รอรับ'?`<button class="btn btn-green" style="margin-top:10px" onclick="receiveOrder('${o.id}')">✓ รับของเข้าสโตร์</button>`:`<div style="margin-top:8px;background:#f3f4f6;border-radius:8px;padding:6px;font-size:12px;color:#6b7280;text-align:center">✅ รับแล้ว</div>`}</div>`;
+  }).join('');
+}
+
+function createOrder() {
+  const pid = document.getElementById('orderPid').value;
+  const qty = parseFloat(document.getElementById('orderQty').value);
+  const supplier = document.getElementById('orderSupplier').value;
+  if (!pid||!qty) { alert('กรอกข้อมูลให้ครบ'); return; }
+  const p = db.products.find(x=>x.id===pid);
+  const order = { id:'PO-'+Date.now().toString().slice(-6), ts:new Date().toLocaleString('th-TH'), pid, qty, supplier, status:'รอรับ' };
+  db.orders.unshift(order);
+  document.getElementById('orderQty').value='';
+  document.getElementById('orderSupplier').value='';
+  saveData(); renderOrders(); alert('สร้าง '+order.id+' สำเร็จ');
+}
+
+function receiveOrder(oid) {
+  const o = db.orders.find(x=>x.id===oid);
+  if (!o) return;
+  db.products = db.products.map(p => p.id===o.pid ? {...p, storeQty:p.storeQty+o.qty} : p);
+  db.orders = db.orders.map(x => x.id===oid ? {...x,status:'รับแล้ว'} : x);
+  saveData(); renderAll(); alert('รับของเข้าสโตร์เรียบร้อย');
+}
+
+function addProduct() {
+  const name = document.getElementById('newName').value.trim();
+  const unit = document.getElementById('newUnit').value.trim();
+  if (!name||!unit) { alert('กรอกชื่อและหน่วย'); return; }
+  const p = {
+    id: 'P'+Date.now().toString().slice(-6),
+    name, unit,
+    storeQty: parseFloat(document.getElementById('newStore').value)||0,
+    frontQty: parseFloat(document.getElementById('newFront').value)||0,
+    rop: parseFloat(document.getElementById('newRop').value)||5,
+    price: parseFloat(document.getElementById('newPrice').value)||0
+  };
+  db.products.push(p);
+  ['newName','newUnit','newStore','newFront','newRop','newPrice'].forEach(id => document.getElementById(id).value='');
+  saveData(); renderAll(); alert('เพิ่ม '+p.name+' สำเร็จ');
+}
+
+// Auto refresh every 30 seconds
+setInterval(loadData, 30000);
+loadData();
+</script>
+</body>
+</html>
